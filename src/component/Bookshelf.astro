@@ -5,6 +5,7 @@ import Bookdata from "./Bookdata.astro";
 const data =  await parseCiNii("https://cir.nii.ac.jp/crid/1130282270755788416.json")
 ---
 <h1>みんなの本棚</h1>
+<h2></h2>
 <ul>
   <li>{data["dc:title"][0]["@value"]}</li>
   <ul>
