@@ -11,5 +11,9 @@
   "dependencies": {
     "astro": "^5.9.3",
     "astro-bootstrap": "^0.7.2"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

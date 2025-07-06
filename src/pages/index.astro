@@ -1,5 +1,6 @@
 ---
 import '../styles/view_size.css'
+import Bookshelf from '../component/Bookshelf.astro'
 ---
 
 
@@ -14,7 +15,7 @@ import '../styles/view_size.css'
 	</head>
 
 	<body>
-		<div class="pc">
+		<div>
 			<h1>かすしゅく.みんな</h1>
 			<h2>What is here?</h2>
 			<p>仲間内のWebサイトへのリンクを集めていたり、役に立ちそうなことを書いたりしてるかもしれない。<br>
@@ -35,9 +36,10 @@ import '../styles/view_size.css'
 					<a href="https://ずきも.かすしゅく.みんな">ずきもの書庫</a>
 				</ul>				
 			</li>
+		<Bookshelf />
 		</div>
 
-		<div class="mobile">
+		<!-- <div class="mobile">
 			<h1>かすしゅく.みんな</h1>
 			<h2>What is here?</h2>
 			<p>仲間内のWebサイトへのリンクを集めていたり、役に立ちそうなことを書いたりしてるかもしれない。<br>
@@ -46,7 +48,6 @@ import '../styles/view_size.css'
 			<h2>相互リンク</h2>
 			<li>
 				<ul>
-					<!-- <a href="https://みや.かすしゅく.みんな"><Image src={miyapng} alt="miya-lis"/></a> -->
 					<a href="https://みや.かすしゅく.みんな">miya-lis.net</a>
 				</ul>
 				<ul>
@@ -59,6 +60,6 @@ import '../styles/view_size.css'
 					<a href="https://ずきも.かすしゅく.みんな">ずきもの書庫</a>
 				</ul>				
 			</li>
-		</div>
+		</div> -->
 	</body>
 </html>

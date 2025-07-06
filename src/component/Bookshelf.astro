@@ -1,0 +1,17 @@
+---
+import { parseCiNii } from "../lib/CiNiiParse";
+import Bookdata from "./Bookdata.astro";
+
+const data =  await parseCiNii("https://cir.nii.ac.jp/crid/1130282270755788416.json")
+---
+<h1>みんなの本棚</h1>
+<ul>
+  <li>{data["dc:title"][0]["@value"]}</li>
+  <ul>
+    <li>{data["dc:creator"]}</li>
+    <li>{data["dcterms:publisher"][0]["prism:publicationDate"]}</li>
+  </ul>
+</ul>
+
+
+
