@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  submodules: write
 
 jobs:
   sync:
@@ -15,9 +14,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: true
-          token: ${{ secrets.GH_APP_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -27,14 +23,16 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@9
 
-      - name: Sync submodules
+      - name: Sync sources
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: pnpm sync:sources
 
       - name: Commit and push
         run: |
           git config user.name "kasushuku-bot"
           git config user.email "bot@kasushuku.local"
-          git add -A
+          git add content
           if git diff --cached --quiet; then
             echo "no changes"
             exit 0

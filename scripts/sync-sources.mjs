@@ -2,14 +2,15 @@
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { rmSync, cpSync, mkdirSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-function sh(cmd, args) {
-  const r = spawnSync(cmd, args, { cwd: root, stdio: 'inherit' });
+function sh(cmd, args, env) {
+  const r = spawnSync(cmd, args, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } });
   if (r.status !== 0) {
     process.exit(r.status ?? 1);
   }
@@ -25,40 +26,39 @@ async function loadConfig() {
   return JSON.parse(raw);
 }
 
-function ensureSubmodule(source) {
-  const subPath = `content/${source.slug}`;
-  const inModules = existsSync(resolve(root, '.git/modules', subPath));
-  if (inModules) {
-    console.log(`[skip] ${subPath} は登録済み`);
-    return;
+function authedUrl(url) {
+  if (!/^https:\/\//.test(url)) return url;
+  if (process.env.GH_TOKEN && !/^https:\/\/[^@]+@/.test(url)) {
+    return url.replace('https://', `https://x-access-token:${process.env.GH_TOKEN}@`);
   }
-  console.log(`[add]  ${source.url} -> ${subPath}`);
-  // file:// を許可(ローカル開発用)。本番の https:// では不要だが害もない。
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL || '/dev/null' };
-  const args = [
-    '-c', 'protocol.file.allow=always',
-    '-c', 'init.defaultBranch=main',
-    'submodule', 'add', '-f', '-b', source.branch, source.url, subPath,
-  ];
-  const r = spawnSync('git', args, { cwd: root, stdio: 'inherit', env });
-  if (r.status !== 0) {
-    process.exit(r.status ?? 1);
-  }
+  return url;
 }
 
-function updateSubmodule(source) {
-  const subPath = `content/${source.slug}`;
-  console.log(`[pull] ${subPath} <- ${source.url} (${source.branch})`);
-  sh('git', [
-    '-c',
-    'protocol.file.allow=always',
-    'submodule',
-    'update',
-    '--remote',
-    '--merge',
-    '--',
-    subPath,
-  ]);
+function syncSource(source) {
+  const dest = resolve(root, `content/${source.slug}`);
+  const branch = source.branch ?? 'main';
+  const subPath = source.path ?? '';
+  const tmp = resolve(root, `.cache/source-${source.slug}`);
+
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+
+  const fetchUrl = authedUrl(source.url);
+  console.log(`[clone] ${source.url} -> ${tmp} (branch=${branch})`);
+  sh('git', ['clone', '--depth=1', '--branch', branch, fetchUrl, tmp], {});
+
+  const srcDir = subPath ? resolve(tmp, subPath) : tmp;
+  if (!existsSync(srcDir)) {
+    console.error(`subpath '${subPath}' が ${source.url} に見つかりません`);
+    process.exit(1);
+  }
+
+  rmSync(dest, { recursive: true, force: true });
+  mkdirSync(dest, { recursive: true });
+  for (const entry of readdirSync(srcDir)) {
+    cpSync(resolve(srcDir, entry), resolve(dest, entry), { recursive: true });
+  }
+  console.log(`[done]  ${source.url}#${branch}:${subPath} -> content/${source.slug}/`);
 }
 
 async function main() {
@@ -68,8 +68,7 @@ async function main() {
       console.error('source に slug と url は必須です:', source);
       process.exit(1);
     }
-    ensureSubmodule(source);
-    updateSubmodule(source);
+    syncSource(source);
   }
   console.log('done.');
 }

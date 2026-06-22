@@ -1,9 +1,8 @@
 {
-  "_note": "url は後で実 GitHub URL に差し替え予定。dev は file:// モックを使用。",
   "sources": [
     {
       "slug": "miya",
-      "url": "file:///tmp/opencode/miya-blog-test",
+      "url": "https://github.com/kasushuku/miya-blog-test.git",
       "branch": "main",
       "path": "miya",
       "author": "みや",

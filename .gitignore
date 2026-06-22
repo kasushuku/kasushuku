@@ -29,8 +29,8 @@ devbox.lock
 # pnpm
 pnpm-lock.yaml
 
-# submodule working copies (only .gitmodules and the path pointers are tracked)
-content/*/
-
 # sync script's local config overrides
 sources.config.local.json
+
+# sync-sources.mjs scratch dir
+.cache/
