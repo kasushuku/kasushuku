@@ -1,0 +1,4 @@
+[submodule "content/miya"]
+	path = content/miya
+	url = file:///tmp/opencode/miya-blog-test
+	branch = main

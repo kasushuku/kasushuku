@@ -1,0 +1,43 @@
+name: sync-sources
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  submodules: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GH_APP_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: Sync submodules
+        run: pnpm sync:sources
+
+      - name: Commit and push
+        run: |
+          git config user.name "kasushuku-bot"
+          git config user.email "bot@kasushuku.local"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git commit -m "chore: sync sources [skip ci]"
+          git push
