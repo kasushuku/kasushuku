@@ -26,9 +26,6 @@ pnpm-debug.log*
 # devbox
 devbox.lock
 
-# pnpm
-pnpm-lock.yaml
-
 # sync script's local config overrides
 sources.config.local.json
 
