@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "slug": "miya",
+      "url": "https://github.com/kasushuku/miya-blog-test.git",
+      "branch": "main",
+      "path": "miya",
+      "author": "みや",
+      "authorUrl": "https://みや.かすしゅく.みんな"
+    },
+    {
+      "slug": "miya2",
+      "url": "https://github.com/kasushuku/miya-blog-test2.git",
+      "branch": "main",
+      "path": "miya2",
+      "author": "みや２",
+      "authorUrl": "https://みや.かすしゅく.みんな"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+---
+import type { Post } from '../lib/posts';
+
+interface Props {
+  post: Post;
+}
+
+const { post } = Astro.props;
+const dateLabel = post.timestamp.toISOString().slice(0, 10);
+---
+
+<article
+  class="post-card"
+  data-author={post.author}
+  data-type={post.type}
+  data-tags={post.tags.join(',')}
+>
+  <header class="post-card__header">
+    <span class="post-card__type">{post.type}</span>
+    <h3 class="post-card__title">{post.title}</h3>
+    <p class="post-card__meta">
+      <a class="post-card__author" href={post.authorUrl ?? '#'}>{post.author}</a>
+      <time datetime={post.timestamp.toISOString()}>{dateLabel}</time>
+    </p>
+  </header>
+  {post.description && <p class="post-card__description">{post.description}</p>}
+  {post.tags.length > 0 && (
+    <ul class="post-card__tags">
+      {post.tags.map((tag) => <li class="post-card__tag">#{tag}</li>)}
+    </ul>
+  )}
+</article>

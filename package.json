@@ -6,10 +6,17 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "sync:sources": "node scripts/sync-sources.mjs",
+    "sync:content": "astro sync"
   },
   "dependencies": {
     "astro": "^6.4.8",
     "astro-bootstrap": "^0.7.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3"
   }
 }

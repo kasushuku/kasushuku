@@ -1,0 +1,506 @@
+---
+import { render } from 'astro:content';
+import {
+  getAllPostsWithEntries,
+  getAuthors,
+  getTags,
+  getTypes,
+} from '../lib/posts';
+import PostCard from '../components/PostCard.astro';
+import PostDetail from '../components/PostDetail.astro';
+import '../styles/view_size.css';
+
+const items = await getAllPostsWithEntries();
+const posts = items.map((i) => i.post);
+const authors = getAuthors(posts);
+const tags = getTags(posts);
+const types = getTypes(posts);
+
+const rendered = await Promise.all(
+  items.map(async ({ post, entry }) => {
+    const { Content } = await render(entry);
+    return { post, Content };
+  }),
+);
+---
+
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/orange.png" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>かすしゅく.みんな Timeline</title>
+  </head>
+  <body>
+    <header class="timeline-header">
+      <a class="timeline-header__back" href="/">← トップ</a>
+      <h1>かすしゅく Timeline</h1>
+      <p class="timeline-header__count"><span id="visible-count">{posts.length}</span> / {posts.length} 件</p>
+    </header>
+
+    <div class="timeline">
+      <aside class="filters" aria-label="フィルタ">
+        <div class="filters__group">
+          <label class="filters__label" for="filter-query">検索</label>
+          <input id="filter-query" class="filters__input" type="search" placeholder="タイトル / 本文 / タグ" />
+        </div>
+        <div class="filters__group">
+          <span class="filters__label">著者</span>
+          <ul class="filters__chips" data-filter-group="author">
+            {authors.map((a) => (
+              <li>
+                <button type="button" class="chip" data-value={a}>{a}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="filters__group">
+          <span class="filters__label">種別</span>
+          <ul class="filters__chips" data-filter-group="type">
+            {types.map((t) => (
+              <li>
+                <button type="button" class="chip" data-value={t}>{t}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="filters__group">
+          <span class="filters__label">タグ</span>
+          <ul class="filters__chips" data-filter-group="tag">
+            {tags.map((t) => (
+              <li>
+                <button type="button" class="chip" data-value={t}>#{t}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="filters__group filters__group--row">
+          <label class="filters__label" for="filter-from">期間</label>
+          <input id="filter-from" class="filters__input filters__input--date" type="date" />
+          <span>〜</span>
+          <input id="filter-to" class="filters__input filters__input--date" type="date" />
+        </div>
+        <div class="filters__group">
+          <button type="button" id="filter-reset" class="filters__reset">リセット</button>
+        </div>
+      </aside>
+
+      <main class="timeline__main">
+        <ul class="cards" id="cards">
+          {posts.map((post) => (
+            <li class="cards__item" data-id={post.id}>
+              <PostCard post={post} />
+            </li>
+          ))}
+        </ul>
+        <p class="empty" id="empty" hidden>該当する記事がありません。</p>
+
+        <div class="detail" id="detail" hidden>
+          <button type="button" id="detail-close" class="detail__close" aria-label="閉じる">×</button>
+          <div id="detail-content"></div>
+        </div>
+      </main>
+    </div>
+
+    {rendered.map(({ post, Content }) => (
+      <template
+        id={`tpl-${post.id}`}
+        data-body-text={post.body}
+        data-timestamp={post.timestamp.toISOString()}
+      >
+        <PostDetail post={post}>
+          <Content />
+        </PostDetail>
+      </template>
+    ))}
+
+    <script>
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('.cards__item'));
+      const emptyEl = document.getElementById('empty') as HTMLElement;
+      const visibleCountEl = document.getElementById('visible-count') as HTMLElement;
+      const detailEl = document.getElementById('detail') as HTMLElement;
+      const detailContentEl = document.getElementById('detail-content') as HTMLElement;
+      const detailCloseBtn = document.getElementById('detail-close') as HTMLButtonElement;
+
+      const filterQuery = document.getElementById('filter-query') as HTMLInputElement;
+      const filterFrom = document.getElementById('filter-from') as HTMLInputElement;
+      const filterTo = document.getElementById('filter-to') as HTMLInputElement;
+      const filterReset = document.getElementById('filter-reset') as HTMLButtonElement;
+
+      const chipGroups = new Map<string, Set<string>>();
+      document.querySelectorAll<HTMLElement>('[data-filter-group]').forEach((el) => {
+        const key = el.dataset.filterGroup!;
+        chipGroups.set(key, new Set());
+        el.querySelectorAll<HTMLButtonElement>('.chip').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const set = chipGroups.get(key)!;
+            if (set.has(btn.dataset.value!)) {
+              set.delete(btn.dataset.value!);
+              btn.classList.remove('chip--active');
+            } else {
+              set.add(btn.dataset.value!);
+              btn.classList.add('chip--active');
+            }
+            applyFilters();
+          });
+        });
+      });
+
+      function readFilters() {
+        return {
+          query: filterQuery.value,
+          from: filterFrom.value ? new Date(filterFrom.value) : null,
+          to: filterTo.value ? new Date(filterTo.value + 'T23:59:59') : null,
+          authors: Array.from(chipGroups.get('author') ?? []),
+          types: Array.from(chipGroups.get('type') ?? []),
+          tags: Array.from(chipGroups.get('tag') ?? []),
+        };
+      }
+
+      function applyFilters() {
+        const f = readFilters();
+        const q = f.query.trim().toLowerCase();
+        let visible = 0;
+        for (const card of cards) {
+          const id = card.dataset.id!;
+          const article = card.querySelector('.post-card') as HTMLElement;
+          const author = article.dataset.author!;
+          const type = article.dataset.type!;
+          const tags = (article.dataset.tags ?? '').split(',').filter(Boolean);
+          const tpl = document.getElementById(`tpl-${id}`) as HTMLTemplateElement | null;
+          const bodyText = tpl?.dataset.bodyText?.toLowerCase() ?? '';
+          const ts = tpl?.dataset.timestamp ? new Date(tpl.dataset.timestamp) : null;
+          let show = true;
+          if (f.authors.length && !f.authors.includes(author)) show = false;
+          if (f.types.length && !f.types.includes(type)) show = false;
+          if (f.tags.length && !f.tags.some((t) => tags.includes(t))) show = false;
+          if (q) {
+            const hay = `${article.textContent ?? ''} ${bodyText}`.toLowerCase();
+            if (!hay.includes(q)) show = false;
+          }
+          if (f.from && ts && ts < f.from) show = false;
+          if (f.to && ts && ts > f.to) show = false;
+          card.hidden = !show;
+          if (show) visible++;
+        }
+        visibleCountEl.textContent = String(visible);
+        emptyEl.hidden = visible !== 0;
+      }
+
+      [filterQuery, filterFrom, filterTo].forEach((el) => {
+        el.addEventListener('input', applyFilters);
+      });
+      filterReset.addEventListener('click', () => {
+        filterQuery.value = '';
+        filterFrom.value = '';
+        filterTo.value = '';
+        for (const set of chipGroups.values()) set.clear();
+        document.querySelectorAll('.chip--active').forEach((el) => el.classList.remove('chip--active'));
+        applyFilters();
+      });
+
+      function openPost(id: string) {
+        const tpl = document.getElementById(`tpl-${id}`) as HTMLTemplateElement | null;
+        if (!tpl) return;
+        detailContentEl.innerHTML = '';
+        detailContentEl.appendChild(tpl.content.cloneNode(true));
+        detailEl.hidden = false;
+        detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const url = new URL(window.location.href);
+        url.searchParams.set('p', id);
+        history.replaceState(null, '', url);
+      }
+
+      function closePost() {
+        detailEl.hidden = true;
+        detailContentEl.innerHTML = '';
+        const url = new URL(window.location.href);
+        url.searchParams.delete('p');
+        history.replaceState(null, '', url);
+      }
+
+      cards.forEach((card) => {
+        card.addEventListener('click', (ev) => {
+          const target = ev.target as HTMLElement;
+          if (target.closest('a')) return;
+          openPost(card.dataset.id!);
+        });
+      });
+      detailCloseBtn.addEventListener('click', closePost);
+
+      const params = new URLSearchParams(window.location.search);
+      const initial = params.get('p');
+      if (initial) openPost(initial);
+    </script>
+
+    <style is:global>
+      body {
+        font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+        color: #222;
+        background: #fafafa;
+        margin: 0;
+        padding: 0 1rem 4rem;
+      }
+      .timeline-header {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        padding: 1rem 0;
+        flex-wrap: wrap;
+      }
+      .timeline-header__back {
+        text-decoration: none;
+        color: #3a6df0;
+      }
+      .timeline-header h1 {
+        margin: 0;
+        font-size: 1.4rem;
+      }
+      .timeline-header__count {
+        margin: 0 0 0 auto;
+        font-size: 0.85rem;
+        color: #666;
+      }
+
+      .timeline {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+      }
+      @media (max-width: 768px) {
+        .timeline {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .filters {
+        position: sticky;
+        top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .filters__group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .filters__group--row {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .filters__label {
+        font-size: 0.8rem;
+        color: #666;
+        font-weight: 600;
+      }
+      .filters__input {
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.9rem;
+        font-family: inherit;
+      }
+      .filters__input--date {
+        width: auto;
+        flex: 1 1 120px;
+      }
+      .filters__chips {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+      }
+      .chip {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-family: inherit;
+        color: inherit;
+        text-decoration: underline;
+      }
+      .chip--active {
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .filters__reset {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+        font-family: inherit;
+        color: inherit;
+        text-decoration: underline;
+      }
+
+      .cards {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .cards__item[hidden] {
+        display: none;
+      }
+      .empty {
+        text-align: center;
+        color: #888;
+        padding: 2rem;
+      }
+
+      .post-card {
+        border: 1px solid #000;
+        padding: 0.4rem 0.6rem;
+      }
+      .post-card__header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .post-card__type {
+        font-size: 0.7rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .post-card__title {
+        margin: 0;
+        font-size: 1.1rem;
+        line-height: 1.35;
+      }
+      .post-card__meta {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #666;
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+      }
+      .post-card__author {
+        color: inherit;
+        text-decoration: none;
+      }
+      .post-card__author:hover {
+        text-decoration: underline;
+      }
+      .post-card__description {
+        margin: 0.3rem 0 0;
+        color: #333;
+        font-size: 0.95rem;
+      }
+      .post-card__tags {
+        list-style: none;
+        margin: 0.3rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        font-size: 0.8rem;
+        color: #3a6df0;
+      }
+      .post-card__tag {
+        font-size: 0.8rem;
+      }
+
+      .detail {
+        position: relative;
+        margin-top: 2rem;
+      }
+      .detail__close {
+        position: absolute;
+        top: -0.5rem;
+        right: 0;
+        background: transparent;
+        border: 0;
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0;
+        color: inherit;
+      }
+      .post-detail {
+        border: 1px solid #000;
+        padding: 0.4rem 0.6rem;
+      }
+      .post-detail__header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-bottom: 0.6rem;
+      }
+      .post-detail__type {
+        font-size: 0.7rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .post-detail__title {
+        margin: 0;
+        font-size: 1.4rem;
+        line-height: 1.3;
+      }
+      .post-detail__meta {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #666;
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+      }
+      .post-detail__author {
+        color: inherit;
+        text-decoration: none;
+      }
+      .post-detail__author:hover {
+        text-decoration: underline;
+      }
+      .post-detail__links {
+        margin: 0;
+        display: flex;
+        gap: 0.8rem;
+        font-size: 0.85rem;
+      }
+      .post-detail__body {
+        line-height: 1.7;
+      }
+      .post-detail__body :global(p) {
+        margin: 0.6em 0;
+      }
+      .post-detail__body :global(pre) {
+        margin: 0.6em 0;
+        padding: 0.4em 0.6em;
+        background: #f0f0f0;
+        overflow-x: auto;
+      }
+      .post-detail__body :global(code) {
+        background: #f0f0f0;
+        padding: 0 0.2em;
+      }
+      .post-detail__body :global(blockquote) {
+        margin: 0.6em 0;
+        padding-left: 0.8em;
+        border-left: 2px solid #ccc;
+      }
+      .post-detail__tags {
+        list-style: none;
+        margin: 0.6rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: #3a6df0;
+      }
+    </style>
+  </body>
+</html>
