@@ -22,3 +22,9 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# devbox
+devbox.lock
+
+# pnpm
+pnpm-lock.yaml
